@@ -1,0 +1,29 @@
+# 编译输出
+build/
+*.o
+*.exe
+*.out
+*.a
+*.so
+*.dylib
+
+# 数据文件
+data/*.dat
+data/*.txt
+
+# IDE配置
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 调试文件
+*.dSYM/
+*.su
+*.idb
+*.pdb
