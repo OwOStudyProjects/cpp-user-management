@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<title>用户管理系统 v1.0 - 高科技 UI</title>
+
+<!-- Google Font -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+
+<style>
+/* =======================
+   主题与变量
+   ======================= */
+:root{
+    /* 基础色调 */
+    --bg:#0a1117;
+    --card-bg:rgba(255,255,255,.07);
+    --input-bg:rgba(255,255,255,.15);
+    --accent:#4f5bd5;          /* 亮蓝紫渐变的起点 */
+
+    /* 文本与阴影 */
+    --text:#e0e0e0;
+    --shadow:0 6px 16px rgba(0,0,0,.3);
+
+    /* 边框圆角 */
+    --radius:12px;
+
+    /* 动画时长 */
+    --dur:.4s;
+}
+
+*{box-sizing:border-box;margin:0;padding:0;}
+body{
+    font-family:'Inter',sans-serif; color:var(--text);
+    background:linear-gradient(135deg,#1d212c,#141b23);
+    min-height:100vh; display:flex; flex-direction:column;
+    align-items:center; justify-content:flex-start;
+}
+header{margin-top:2rem;}
+h1{
+    font-weight:600; text-transform:uppercase;
+    background:linear-gradient(135deg, var(--accent), #5c57db);
+    -webkit-background-clip:text; color:transparent;
+}
+
+/* =======================
+   卡片容器（搜索、文件上传）
+   ======================= */
+.card{
+    width:90%; max-width:1200px; margin:1rem auto 0;
+    backdrop-filter:blur(15px); background:var(--card-bg);
+    border-radius:var(--radius); padding:1.5rem;
+    box-shadow:var(--shadow);
+}
+.input-group{position:relative; margin-top:.5rem;}
+input[type="text"], input[type="file"]{
+    width:100%; padding:.75rem 1rem;
+    background:var(--input-bg); border:none; outline:none;
+    color:inherit; font-size:1rem; border-radius:var(--radius);
+    transition:background var(--dur),box-shadow var(--dur);
+}
+input[type="text"]::placeholder{color:#b0b0b0;}
+input[type="text"]:focus,
+input[type="file"]:hover{
+    background:rgba(255,255,255,.25);
+    box-shadow:0 0 8px var(--accent);
+}
+
+/* =======================
+   表格
+   ======================= */
+.table-container{width:90%; max-width:1200px; margin:1rem auto;}
+table{border-collapse:collapse;width:100%;}
+th,td{
+    padding:.75rem 1rem; text-align:left;
+}
+thead{
+    background:linear-gradient(135deg,var(--accent),#5c57db);
+    color:#fff;font-weight:600;
+}
+tbody tr:nth-child(even){background:rgba(255,255,255,.05);}
+tbody tr:hover{
+    background:rgba(79,91,213,.2);
+    transform:scale(1.01);
+    transition:all .15s;
+}
+td span.active{color:var(--accent); font-weight:bold;}
+</style>
+</head>
+
+<body>
+<header><h1>用户管理系统 v1.0</h1></header>
+
+<!-- 搜索框 -->
+<div class="card">
+    <label for="search-box" style="display:block;margin-bottom:.5rem;">搜索用户：</label>
+    <div class="input-group">
+        <input id="search-box" type="text" placeholder="按姓名搜索（支持模糊匹配）"/>
+    </div>
+</div>
+
+<!-- 文件上传 -->
+<div class="card">
+    <label for="data-file" style="display:block;margin-bottom:.5rem;">选择本地 users.dat 文件：</label>
+    <div class="input-group">
+        <input id="data-file" type="file" accept=".dat"/>
+    </div>
+</div>
+
+<!-- 表格 -->
+<div class="table-container">
+    <table id="user-table">
+        <thead><tr><th>ID</th><th>姓名</th><th>年龄</th><th>邮箱</th><th>状态</th></tr></thead>
+        <tbody></tbody>
+    </table>
+</div>
+
+<script>
+const MAX_NAME_LEN=50,MAX_EMAIL_LEN=50;
+let users=[];
+
+// 解析二进制文件
+function parseUsers(buffer){
+    const dv=new DataView(buffer), arr=[];
+    let off=0, count=dv.getInt32(off,true); off+=4;
+    for(let i=0;i<count;i++){
+        const id=dv.getInt32(off,true); off+=4;
+        const nameBytes=new Uint8Array(buffer.slice(off,off+MAX_NAME_LEN));
+        let name=''; for(const b of nameBytes){ if(b===0)break; name+=String.fromCharCode(b);} off+=MAX_NAME_LEN; off+=2;
+        const age=dv.getInt32(off,true); off+=4;
+        const emailBytes=new Uint8Array(buffer.slice(off,off+MAX_EMAIL_LEN));
+        let email=''; for(const b of emailBytes){ if(b===0)break; email+=String.fromCharCode(b);} off+=MAX_EMAIL_LEN; off+=2;
+        const is_active=dv.getInt32(off,true); off+=4;
+        arr.push({id,name,age,email,is_active});
+    }
+    return arr;
+}
+
+// 渲染表格
+function renderTable(filter=''){
+    const tbody=document.querySelector('#user-table tbody');
+    tbody.innerHTML='';
+    const filtered=users.filter(u=>u.name.includes(filter));
+    for(const u of filtered){
+        const tr=document.createElement('tr');
+        tr.innerHTML=`<td>${u.id}</td><td>${u.name}</td>
+                      <td>${u.age}</td><td>${u.email}</td>`;
+        const status=u.is_active?'<span class="active">激活</span>':'已删除';
+        tr.innerHTML+=`<td>${status}</td>`;
+        tbody.appendChild(tr);
+    }
+}
+
+// 文件读取
+document.getElementById('data-file').addEventListener('change',e=>{
+    if(!e.target.files.length)return;
+    const file=e.target.files[0], reader=new FileReader();
+    reader.onload=ev=>{
+        users=parseUsers(ev.target.result);
+        renderTable();
+    };
+    reader.readAsArrayBuffer(file);
+});
+
+// 搜索
+document.getElementById('search-box').addEventListener('input',e=>renderTable(e.target.value.trim()));
+</script>
+</body>
+</html>
